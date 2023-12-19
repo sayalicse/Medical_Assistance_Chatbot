@@ -9,7 +9,7 @@ import time
 # Updated API details
 API_URL_RECOGNITION = "https://api-inference.huggingface.co/models/jonatasgrosman/wav2vec2-large-xlsr-53-english"
 API_URL_DIAGNOSTIC = "https://api-inference.huggingface.co/models/DinaSalama/symptom_to_disease_distb"
-headers = {"Authorization": "Bearer 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"}
+headers = {"Authorization": "Bearer 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"}
 
 def recognize_speech(audio_file):
     with open(audio_file, "rb") as f:
