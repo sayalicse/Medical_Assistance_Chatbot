@@ -1,4 +1,11 @@
-import requests
+
+
+   
+    
+   
+
+    
+    import requests
 from pydub import AudioSegment
 import streamlit as st
 from streamlit_chat import message as st_message
@@ -8,8 +15,14 @@ import time
 
 # Updated API details
 API_URL_RECOGNITION = "https://api-inference.huggingface.co/models/jonatasgrosman/wav2vec2-large-xlsr-53-english"
-API_URL_DIAGNOSTIC = "https://api-inference.huggingface.co/models/DinaSalama/symptom_to_disease_distb"
-headers = {"Authorization": "Bearer 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"}
+
+# List of diagnostic models with their respective API URLs
+DIAGNOSTIC_MODELS = [
+    {"name": "Model 1", "api_url": "https://api-inference.huggingface.co/models/abhirajeshbhai/symptom-2-disease-net"},
+    {"name": "Model 2", "api_url": "https://api-inference.huggingface.co/models/DinaSalama/symptom_to_disease_distb"},
+]
+
+headers = {"Authorization": "Bearer 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"}
 
 def recognize_speech(audio_file):
     with open(audio_file, "rb") as f:
@@ -31,21 +44,29 @@ def recognize_speech(audio_file):
     output = response.json()
     final_output = output.get('text', 'Speech recognition failed')
     return final_output
-
 def diagnostic_medic(voice_text):
-    payload = {"inputs": voice_text}
-    response = query(payload)  # Using the new API
+    model_results = []
 
-    try:
-        # Extract top diseases or symptoms based on the model's output
-        top_results = response[0][:5]  # Assuming the model returns a list of results
-        final_output = format_diagnostic_results(top_results)
-    except (KeyError, IndexError):
-        final_output = 'Diagnostic information not available'
+    for model_info in DIAGNOSTIC_MODELS:
+        payload = {"inputs": [voice_text]}
+        response = requests.post(model_info["api_url"], headers=headers, json=payload)
 
-    return final_output
+        try:
+            results = response.json()[0][:5]
+            model_results.append({"name": model_info["name"], "results": results})
+        except (KeyError, IndexError):
+            st.warning(f'Diagnostic information not available for {model_info["name"]}')
 
-def format_diagnostic_results(results):
+    if not model_results:
+        return 'No diagnostic information available'
+
+    # Compare results based on confidentiality score and choose the model with the highest score
+    best_model_result = max(model_results, key=lambda x: max([result['score'] for result in x['results']], default=0.0))
+    
+    return format_diagnostic_results(best_model_result["results"], best_model_result["name"])
+
+
+def format_diagnostic_results(results, model_name):
     # Sort the results based on the score in descending order
     sorted_results = sorted(results, key=lambda x: x['score'], reverse=True)
 
@@ -56,11 +77,7 @@ def format_diagnostic_results(results):
     if not formatted_results:
         return 'No diagnostic information available'
 
-    return f'Top Diseases or Symptoms:\n{", ".join(formatted_results)}'
-
-def query(payload):
-    response = requests.post(API_URL_DIAGNOSTIC, headers=headers, json=payload)
-    return response.json()
+    return f'Top Diseases or Symptoms from {model_name}:\n{", ".join(formatted_results)}'
 
 def generate_answer(audio_recording):
     st.spinner("Consultation in progress...")
@@ -79,15 +96,19 @@ def generate_answer(audio_recording):
     st.write(f"Speech recognition result: {text}")
 
     # Disease Prediction Model
-    st.write("Calling diagnostic model...")
+    st.write("Calling diagnostic models...")
     diagnostic = diagnostic_medic(text)
     st.write(f"Diagnostic result:\n{diagnostic}")
+
+    # Add the statement for more detailed symptoms
+    st.write("Please provide more detailed symptoms for precise recognition.")
 
     # Save conversation
     st.session_state.history.append({"message": text, "is_user": True})
     st.session_state.history.append({"message": diagnostic, "is_user": False})
 
     st.success("Medical consultation done")
+
 
 if __name__ == "__main__":
     # Remove the hamburger in the upper right-hand corner and the Made with Streamlit footer
